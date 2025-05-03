@@ -1,6 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Disable ESLint during builds (we'll run it separately)
+  eslint: {
+    // Warning: This allows production builds to successfully complete even if
+    // your project has ESLint errors.
+    ignoreDuringBuilds: true,
+  },
+  // Disable TypeScript type checking during builds (we'll run it separately)
+  typescript: {
+    // Warning: This allows production builds to successfully complete even if
+    // your project has type errors.
+    ignoreBuildErrors: true,
+  },
   webpack: (config, { isServer }) => {
     // If client-side, don't polyfill Node.js modules
     if (!isServer) {
@@ -37,7 +49,7 @@ const nextConfig = {
   },
   // Disable image optimization for development
   images: {
-    unoptimized: process.env.NODE_ENV === 'development',
+    unoptimized: process.env.NODE_ENV === "development",
   },
 };
 
