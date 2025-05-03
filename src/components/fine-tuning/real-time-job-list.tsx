@@ -53,16 +53,27 @@ export function RealTimeJobList({
       );
       if (response.ok) {
         const data = await response.json();
-        setJobs(data.jobs);
-        setLastRefreshed(new Date());
+        // Make sure data.jobs exists before using it
+        if (data && Array.isArray(data.jobs)) {
+          setJobs(data.jobs);
+          setLastRefreshed(new Date());
 
-        // Adjust polling frequency based on job statuses
-        updatePollingFrequency(data.jobs);
+          // Adjust polling frequency based on job statuses
+          updatePollingFrequency(data.jobs);
+        } else {
+          console.error("Invalid response format: jobs array not found", data);
+          // Use current jobs for polling frequency
+          updatePollingFrequency(jobs);
+        }
       } else {
         console.error("Failed to fetch jobs");
+        // Use current jobs for polling frequency
+        updatePollingFrequency(jobs);
       }
     } catch (error) {
       console.error("Error fetching jobs:", error);
+      // Use current jobs for polling frequency
+      updatePollingFrequency(jobs);
     } finally {
       setIsLoading(false);
     }
@@ -93,7 +104,13 @@ export function RealTimeJobList({
   };
 
   // Function to update polling frequency based on job statuses
-  const updatePollingFrequency = (currentJobs: FineTuningJob[]) => {
+  const updatePollingFrequency = (currentJobs: FineTuningJob[] | undefined) => {
+    // If currentJobs is undefined or empty, use default polling frequency
+    if (!currentJobs || currentJobs.length === 0) {
+      setPollingFrequency(30000); // Default to 30 seconds
+      return;
+    }
+
     if (currentJobs.some((job) => job.status === "running")) {
       setPollingFrequency(10000); // 10 seconds for running jobs
     } else if (currentJobs.some((job) => job.status === "pending")) {
@@ -103,6 +120,13 @@ export function RealTimeJobList({
     }
   };
 
+  // Initial fetch when component mounts
+  useEffect(() => {
+    // Fetch jobs on mount
+    fetchJobs().catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Set up polling
   useEffect(() => {
     // Initial update of polling frequency
@@ -110,6 +134,13 @@ export function RealTimeJobList({
 
     // Set up polling interval
     const interval = window.setInterval(async () => {
+      // Make sure jobs is defined and not empty
+      if (!jobs || jobs.length === 0) {
+        // If no jobs, do a full refresh
+        fetchJobs().catch(console.error);
+        return;
+      }
+
       // Get jobs that are in progress
       const jobsInProgress = jobs.filter(
         (job) => job.status === "pending" || job.status === "running"
@@ -134,7 +165,8 @@ export function RealTimeJobList({
         clearInterval(interval);
       }
     };
-  }, [pollingFrequency, jobs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pollingFrequency]); // Only depend on pollingFrequency to avoid infinite loops
 
   // Handle deleting a job
   const handleDeleteJob = async (id: string) => {
