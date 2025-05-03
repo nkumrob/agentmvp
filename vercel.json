@@ -1,0 +1,16 @@
+{
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "outputDirectory": ".next",
+  "devCommand": "npm run dev",
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "env": {
+    "PRISMA_GENERATE_DATAPROXY": "true"
+  }
+}

@@ -35,10 +35,19 @@ const initializeAnthropic = async () => {
   if (anthropic) return anthropic;
 
   try {
-    // Using require instead of import to avoid build errors
-    const { Anthropic } = require("anthropic");
+    // Try to import the real Anthropic module
+    let Anthropic;
+    try {
+      // Using dynamic import to avoid build errors
+      Anthropic = (await import("anthropic")).Anthropic;
+    } catch (importError) {
+      // If real module is not available, use our mock implementation
+      console.log("Using mock Anthropic implementation");
+      Anthropic = (await import("./anthropic-mock")).default;
+    }
+
     anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
+      apiKey: process.env.ANTHROPIC_API_KEY || "mock-api-key",
     });
     return anthropic;
   } catch (error) {

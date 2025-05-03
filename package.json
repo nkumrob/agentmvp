@@ -4,12 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "node server.js",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "NODE_ENV=production node server.js",
     "lint": "next lint",
     "recalculate-character-counts": "ts-node scripts/recalculate-character-counts.ts",
     "sync-jobs": "node scripts/setup-cron.js",
-    "sync-jobs-once": "node -e \"require('./scripts/setup-cron').syncFineTuningJobs()\""
+    "sync-jobs-once": "node -e \"require('./scripts/setup-cron').syncFineTuningJobs()\"",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.18.4",
