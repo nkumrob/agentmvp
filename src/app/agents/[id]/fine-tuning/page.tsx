@@ -25,6 +25,7 @@ import { ExampleForm } from "@/components/fine-tuning/example-form";
 import { ExampleList } from "@/components/fine-tuning/example-list";
 import { JobForm } from "@/components/fine-tuning/job-form";
 import { JobList } from "@/components/fine-tuning/job-list";
+import { RealTimeJobList } from "@/components/fine-tuning/real-time-job-list";
 import { KnowledgeStatus } from "@/components/knowledge-status";
 import { KnowledgeSourceList } from "@/components/knowledge-source-list";
 import { Loader2, Plus, Database, Zap, BookOpen } from "lucide-react";
@@ -177,15 +178,10 @@ export default function AgentFineTuningPage() {
     fetchExamples();
   }, []);
 
-  // State for tracking job loading
-  const [isLoadingJobs, setIsLoadingJobs] = useState(false);
-
   // Fetch fine-tuning jobs
   const fetchJobs = async () => {
     try {
       if (!modelConfig) return;
-
-      setIsLoadingJobs(true);
 
       const response = await fetch(
         `/api/fine-tuning?modelConfigId=${modelConfig.id}`
@@ -195,56 +191,17 @@ export default function AgentFineTuningPage() {
         setJobs(data);
       } else {
         console.error("Failed to fetch jobs");
-        toast({
-          title: "Error",
-          description: "Failed to fetch fine-tuning jobs",
-          variant: "destructive",
-        });
       }
     } catch (error) {
       console.error("Error fetching jobs:", error);
-      toast({
-        title: "Error",
-        description: "An error occurred while fetching fine-tuning jobs",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoadingJobs(false);
     }
   };
 
-  // Set up auto-refresh for jobs
   useEffect(() => {
-    if (!modelConfig) return;
-
-    // Initial fetch
-    fetchJobs();
-
-    // Set up interval to check jobs every 30 seconds
-    const interval = setInterval(() => {
-      console.log("Auto-refreshing fine-tuning jobs...");
-
-      // Check if any jobs are pending or running
-      const hasActiveJobs = jobs.some(
-        (job: any) => job.status === "pending" || job.status === "running"
-      );
-
-      // If we have active jobs, trigger a check on all jobs
-      if (hasActiveJobs) {
-        console.log("Found active jobs, triggering job status check");
-        try {
-          fetch("/api/fine-tuning/check-jobs");
-        } catch (checkError) {
-          console.error("Error checking job status:", checkError);
-        }
-      }
-
+    if (modelConfig) {
       fetchJobs();
-    }, 30000);
-
-    // Clean up interval on unmount
-    return () => clearInterval(interval);
-  }, [modelConfig, jobs]);
+    }
+  }, [modelConfig]);
 
   // Handle creating a new training example
   const handleCreateExample = async (example: any) => {
@@ -602,14 +559,14 @@ export default function AgentFineTuningPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <JobList
-                    jobs={jobs}
-                    onDelete={handleDeleteJob}
-                    onSetActive={handleSetActiveModel}
-                    activeModelId={modelConfig?.activeModelId || null}
-                    onRefresh={fetchJobs}
-                    isLoading={isLoadingJobs}
-                  />
+                  {/* Replace the JobList with the RealTimeJobList */}
+                  {modelConfig && (
+                    <RealTimeJobList
+                      initialJobs={jobs}
+                      modelConfigId={modelConfig.id}
+                      agentId={agentId}
+                    />
+                  )}
                 </CardContent>
               </Card>
             </div>

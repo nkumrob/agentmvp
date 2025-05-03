@@ -61,6 +61,7 @@ interface JobListProps {
   onSetActive: (jobId: string, modelId: string) => Promise<void>;
   activeModelId?: string | null;
   onRefresh?: () => Promise<void>;
+  onRefreshJob?: (jobId: string) => Promise<void>;
 }
 
 export function JobList({
@@ -69,12 +70,16 @@ export function JobList({
   onSetActive,
   activeModelId,
   onRefresh,
+  onRefreshJob,
 }: JobListProps) {
   const [viewJob, setViewJob] = useState<FineTuningJob | null>(null);
   const [deleteJob, setDeleteJob] = useState<FineTuningJob | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [isSettingActive, setIsSettingActive] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [refreshingJobs, setRefreshingJobs] = useState<Record<string, boolean>>(
+    {}
+  );
 
   const handleDelete = async () => {
     if (!deleteJob) return;
@@ -116,6 +121,22 @@ export function JobList({
       console.error("Error refreshing jobs:", error);
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  const handleRefreshJob = async (jobId: string) => {
+    if (!onRefreshJob) return;
+
+    // Mark this job as refreshing
+    setRefreshingJobs((prev) => ({ ...prev, [jobId]: true }));
+
+    try {
+      await onRefreshJob(jobId);
+    } catch (error) {
+      console.error(`Error refreshing job ${jobId}:`, error);
+    } finally {
+      // Mark this job as no longer refreshing
+      setRefreshingJobs((prev) => ({ ...prev, [jobId]: false }));
     }
   };
 
@@ -192,8 +213,7 @@ export function JobList({
               <div className="flex justify-between items-start">
                 <div>
                   <CardTitle className="text-base">
-                    {job.modelConfig?.agent?.name || "Unknown Agent"} -{" "}
-                    {job.model}
+                    {job.modelConfig.agent.name} - {job.model}
                   </CardTitle>
                   <CardDescription>
                     Created{" "}
@@ -252,6 +272,24 @@ export function JobList({
             </CardContent>
             <CardFooter className="pt-2">
               <div className="flex space-x-2 ml-auto">
+                {/* Add refresh button for individual jobs */}
+                {onRefreshJob &&
+                  (job.status === "pending" || job.status === "running") && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRefreshJob(job.id)}
+                      disabled={refreshingJobs[job.id]}
+                    >
+                      {refreshingJobs[job.id] ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4 mr-1" />
+                      )}
+                      {refreshingJobs[job.id] ? "Refreshing..." : "Refresh"}
+                    </Button>
+                  )}
+
                 <Button
                   variant="ghost"
                   size="sm"
@@ -338,7 +376,7 @@ export function JobList({
 
               <div>
                 <h4 className="text-sm font-medium mb-1">Agent</h4>
-                <p>{viewJob?.modelConfig?.agent?.name || "Unknown Agent"}</p>
+                <p>{viewJob?.modelConfig.agent.name}</p>
               </div>
 
               <div>

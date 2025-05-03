@@ -1161,20 +1161,26 @@ export async function checkFineTuningStatus(jobId: string) {
     const modelAdded =
       !fineTuningJob.fineTunedModel && openaiJob.fine_tuned_model;
 
+    // Always update progress details even if status hasn't changed
+    // This ensures we have the latest progress information
+    const shouldUpdateProgress = true;
+
     // Update the job status in the database with enhanced progress information
     let updatedJob = fineTuningJob;
 
-    if (
-      statusChanged ||
-      modelAdded ||
-      Object.keys(progressDetails).length > 2
-    ) {
-      console.log(
-        `Job status changed from ${fineTuningJob.status} to ${mappedStatus}`
-      );
+    if (statusChanged || modelAdded || shouldUpdateProgress) {
+      if (statusChanged) {
+        console.log(
+          `Job status changed from ${fineTuningJob.status} to ${mappedStatus}`
+        );
+      }
       if (modelAdded) {
         console.log(`Fine-tuned model ID added: ${openaiJob.fine_tuned_model}`);
       }
+
+      console.log(
+        `Updating job progress details: ${JSON.stringify(progressDetails)}`
+      );
 
       // Update the job in the database
       updatedJob = await prisma.fineTuningJob.update({
@@ -1183,6 +1189,7 @@ export async function checkFineTuningStatus(jobId: string) {
           status: mappedStatus,
           fineTunedModel: openaiJob.fine_tuned_model,
           resultMetrics: JSON.stringify(progressDetails),
+          updatedAt: new Date(), // Force update timestamp to trigger client refresh
           completedAt: ["succeeded", "failed", "cancelled"].includes(
             mappedStatus
           )
