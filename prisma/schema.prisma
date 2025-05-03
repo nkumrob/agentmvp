@@ -1,0 +1,184 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// User model (not used with Clerk authentication)
+model User {
+  id            String   @id @default(cuid())
+  name          String?
+  email         String   @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// Agent model
+model Agent {
+  id                  String   @id @default(cuid())
+  name                String
+  description         String?
+  userId              String   // Store Clerk user ID as a string
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  persona             Persona? @relation(fields: [personaId], references: [id])
+  personaId           String?
+  totalCharacterCount Int      @default(0)  // Total character count across all sources
+  totalWordCount      Int      @default(0)  // Total word count across all sources
+  dataSources         DataSource[]
+  modelConfig         ModelConfig?
+  chats               Chat[]
+}
+
+// Persona model
+model Persona {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  toneRules   Json?
+  examples    Example[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  agents      Agent[]
+}
+
+// Example model for persona training
+model Example {
+  id        String   @id @default(cuid())
+  prompt    String
+  response  String
+  personaId String
+  persona   Persona  @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tags      String   // Comma-separated tags
+}
+
+// DataSource model
+model DataSource {
+  id              String   @id @default(cuid())
+  name            String
+  sourceType      String   // URL, PDF, YouTube, etc.
+  sourceUrl       String?
+  content         String?
+  status          String   // pending, processing, completed, failed
+  characterCount  Int      @default(0)  // Total character count of the source
+  wordCount       Int      @default(0)  // Total word count of the source
+  agentId         String
+  agent           Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  chunks          Chunk[]
+}
+
+// Chunk model for vector storage
+model Chunk {
+  id           String   @id @default(cuid())
+  content      String
+  metadata     String?  // JSON string
+  embedding    String?  // JSON string
+  dataSourceId String
+  dataSource   DataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ModelConfig for fine-tuning settings
+model ModelConfig {
+  id                String   @id @default(cuid())
+  baseModel         String   // e.g., "gpt-3.5-turbo"
+  provider          String   @default("openai") // e.g., "openai", "anthropic", "local"
+  temperature       Float    @default(0.7)
+  maxTokens         Int      @default(1000)
+  topP              Float?
+  frequencyPenalty  Float?
+  presencePenalty   Float?
+  systemPrompt      String?
+  finetuningMethod  String?  // e.g., "SFT", "PEFT", "RLHF"
+  status            String   // pending, training, completed, failed
+  checkpoints       String?  // JSON string of checkpoint versions
+  agentId           String   @unique
+  agent             Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  fineTuningJobs    FineTuningJob[]
+  activeModelId     String?  // ID of the currently active fine-tuned model
+}
+
+// Chat model
+model Chat {
+  id        String   @id @default(cuid())
+  title     String?
+  agentId   String
+  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  messages  Message[]
+}
+
+// Message model
+model Message {
+  id              String   @id @default(cuid())
+  content         String
+  role            String   // user, assistant
+  chatId          String
+  chat            Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  citations       String?  // JSON string of citations
+  feedback        Int?     // User feedback score (1-5)
+  feedbackComment String?  // Optional feedback comment
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Analytics model
+model Analytics {
+  id               String   @id @default(cuid())
+  agentId          String
+  queryCount       Int      @default(0)
+  responseTime     Float?   // Average response time in ms
+  satisfactionScore Float?  // Average satisfaction score
+  contentGaps      String?  // JSON string of topics with low coverage
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// Fine-tuning job model
+model FineTuningJob {
+  id               String   @id @default(cuid())
+  jobId            String?  // External job ID from OpenAI
+  status           String   // pending, running, succeeded, failed, cancelled
+  model            String   // Base model to fine-tune
+  fineTunedModel   String?  // Resulting fine-tuned model name
+  trainingFile     String?  // File ID for training data
+  validationFile   String?  // File ID for validation data
+  hyperparameters  String?  // JSON string of hyperparameters
+  resultMetrics    String?  // JSON string of training metrics
+  modelConfigId    String
+  modelConfig      ModelConfig @relation(fields: [modelConfigId], references: [id], onDelete: Cascade)
+  userId           String   // Store Clerk user ID as a string
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  completedAt      DateTime?
+  trainingExamples TrainingExample[]
+}
+
+// Training example model for fine-tuning
+model TrainingExample {
+  id             String   @id @default(cuid())
+  messages       String   // JSON string of conversation messages
+  fineTuningJobId String?
+  fineTuningJob  FineTuningJob? @relation(fields: [fineTuningJobId], references: [id], onDelete: SetNull)
+  userId         String   // Store Clerk user ID as a string
+  source         String?  // Where the example came from (e.g., "chat", "manual", "imported")
+  tags           String?  // Comma-separated tags
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
